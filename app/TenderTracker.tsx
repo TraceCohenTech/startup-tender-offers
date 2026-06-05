@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 // ─── DATASET ─────────────────────────────────────────────────────────────────
 // 63 events · 31 companies · 2022–2026
@@ -492,16 +496,50 @@ const TENDER_DATA = [
   },
 ];
 
+// ─── VALUATION TRAJECTORY ─────────────────────────────────────────────────────
+// Tender-implied valuations for the 5 most active companies
+const VALUATION_TIMELINE = [
+  { t: "May '22", OpenAI: null, SpaceX: 125,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Dec '22", OpenAI: null, SpaceX: 137,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Jan '23", OpenAI: 29,   SpaceX: null, Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Mar '23", OpenAI: null, SpaceX: null, Stripe: 50,   Databricks: null, Anthropic: null },
+  { t: "Jun '23", OpenAI: null, SpaceX: 150,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Sep '23", OpenAI: null, SpaceX: null, Stripe: null, Databricks: 43,   Anthropic: null },
+  { t: "Nov '23", OpenAI: 86,   SpaceX: null, Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Dec '23", OpenAI: null, SpaceX: 180,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Feb '24", OpenAI: null, SpaceX: null, Stripe: 65,   Databricks: null, Anthropic: null },
+  { t: "Jun '24", OpenAI: null, SpaceX: 210,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Nov '24", OpenAI: 157,  SpaceX: null, Stripe: 70,   Databricks: null, Anthropic: null },
+  { t: "Dec '24", OpenAI: null, SpaceX: 350,  Stripe: null, Databricks: 62,   Anthropic: null },
+  { t: "Feb '25", OpenAI: null, SpaceX: null, Stripe: 92,   Databricks: null, Anthropic: null },
+  { t: "Mar '25", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 62  },
+  { t: "Jul '25", OpenAI: null, SpaceX: 400,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Sep '25", OpenAI: null, SpaceX: null, Stripe: 107,  Databricks: 100,  Anthropic: null },
+  { t: "Oct '25", OpenAI: 500,  SpaceX: null, Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Dec '25", OpenAI: null, SpaceX: 800,  Stripe: null, Databricks: null, Anthropic: null },
+  { t: "Feb '26", OpenAI: null, SpaceX: null, Stripe: 159,  Databricks: null, Anthropic: null },
+  { t: "Mar '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: 134,  Anthropic: null },
+  { t: "Apr '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 350 },
+];
+
+const CHART_COLORS: Record<string, string> = {
+  OpenAI:     "#0071e3",
+  SpaceX:     "#e8570c",
+  Stripe:     "#1a7f3c",
+  Databricks: "#b45309",
+  Anthropic:  "#0891b2",
+};
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTORS = ["All", ...Array.from(new Set(TENDER_DATA.map(d => d.sector))).sort()];
 const YEARS = ["All", "2022", "2023", "2024", "2025", "2026"];
 const MAX_VAL = Math.max(...TENDER_DATA.filter(d => d.valuation != null).map(d => d.valuation as number));
 
 const STATUS_COLORS: Record<string, string> = {
-  confirmed: "#1a7f3c",
-  reported:  "#b45309",
+  confirmed:   "#1a7f3c",
+  reported:    "#b45309",
   undisclosed: "#6e6e73",
-  estimated:  "#0891b2",
+  estimated:   "#0891b2",
 };
 
 const SECTOR_COLORS: Record<string, string> = {
@@ -529,23 +567,23 @@ const SECTOR_COLORS: Record<string, string> = {
 };
 
 const DEAL_ACCENT: Record<string, string> = {
-  "Employee Tender": "#0071e3",
-  "Employee Tender (Annual)": "#0071e3",
-  "Employee Tender + Buyback": "#0071e3",
-  "Employee Tender + Primary": "#0071e3",
-  "Employee Tender (Recurring)": "#0071e3",
-  "Employee Secondary": "#e8570c",
-  "Company Buyback": "#1a7f3c",
-  "Employee Buyback": "#1a7f3c",
-  "Company Buyback / Secondary": "#1a7f3c",
-  "Primary Round (Liquidity-Driven)": "#0891b2",
-  "Primary Round (w/ Secondary)": "#0891b2",
-  "Primary Round (w/ Community Secondary)": "#0891b2",
-  "Primary + Employee Tender": "#0284c7",
-  "Primary + Largest Employee Tender": "#0284c7",
-  "Secondary Sale": "#b45309",
-  "Investor Secondary": "#b45309",
-  "Internal Repurchase / Secondary": "#b45309",
+  "Employee Tender":                           "#0071e3",
+  "Employee Tender (Annual)":                  "#0071e3",
+  "Employee Tender + Buyback":                 "#0071e3",
+  "Employee Tender + Primary":                 "#0071e3",
+  "Employee Tender (Recurring)":               "#0071e3",
+  "Employee Secondary":                        "#e8570c",
+  "Company Buyback":                           "#1a7f3c",
+  "Employee Buyback":                          "#1a7f3c",
+  "Company Buyback / Secondary":               "#1a7f3c",
+  "Primary Round (Liquidity-Driven)":          "#0891b2",
+  "Primary Round (w/ Secondary)":              "#0891b2",
+  "Primary Round (w/ Community Secondary)":    "#0891b2",
+  "Primary + Employee Tender":                 "#0284c7",
+  "Primary + Largest Employee Tender":         "#0284c7",
+  "Secondary Sale":                            "#b45309",
+  "Investor Secondary":                        "#b45309",
+  "Internal Repurchase / Secondary":           "#b45309",
 };
 
 // ─── FORMATTERS ───────────────────────────────────────────────────────────────
@@ -565,17 +603,17 @@ const fmtAmt = (a: number | null, status: string): string => {
 function Avatar({ name, color }: { name: string; color: string }) {
   return (
     <div style={{
-      width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
       background: color + "18", border: `1px solid ${color}30`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 12, fontWeight: 700, color, letterSpacing: "-0.01em",
+      fontSize: 11, fontWeight: 700, color, letterSpacing: "-0.01em",
     }}>
       {name[0]}
     </div>
   );
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string; accent?: string }) {
+function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div style={{
       background: "rgba(255,255,255,0.15)", borderRadius: 12,
@@ -596,15 +634,82 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 function StatusBadge({ status }: { status: string }) {
   const color = STATUS_COLORS[status] || "#6e6e73";
-  const labels: Record<string, string> = { confirmed: "Confirmed", reported: "Reported", undisclosed: "Undisclosed", estimated: "Estimated" };
+  const labels: Record<string, string> = {
+    confirmed: "Confirmed", reported: "Reported",
+    undisclosed: "Undisclosed", estimated: "Estimated",
+  };
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
-      fontSize: 10, color, letterSpacing: "0.04em",
-    }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color, letterSpacing: "0.03em" }}>
       <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
       {labels[status] || status}
     </span>
+  );
+}
+
+function ValuationChart() {
+  const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', sans-serif";
+  const companies = Object.keys(CHART_COLORS);
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 14,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+      padding: "22px 28px 16px",
+      marginBottom: 16,
+    }}>
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'SF Mono','Fira Code',monospace" }}>
+          Valuation Trajectory
+        </div>
+        <div style={{ fontSize: 12, color: "#aeaeb2", marginTop: 2, fontFamily: FONT }}>
+          Implied valuations at each tender event · 5 most active companies
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={260}>
+        <LineChart data={VALUATION_TIMELINE} margin={{ top: 12, right: 20, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+          <XAxis
+            dataKey="t"
+            tick={{ fontSize: 10, fill: "#aeaeb2", fontFamily: FONT }}
+            axisLine={false}
+            tickLine={false}
+            interval={2}
+          />
+          <YAxis
+            tickFormatter={v => `$${v}B`}
+            tick={{ fontSize: 10, fill: "#aeaeb2", fontFamily: FONT }}
+            axisLine={false}
+            tickLine={false}
+            width={46}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "#fff", border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              fontSize: 12, fontFamily: FONT,
+            }}
+            formatter={(value, name) => [`$${value}B`, name as string]}
+            labelStyle={{ color: "#6e6e73", fontSize: 11, marginBottom: 4 }}
+          />
+          <Legend
+            iconType="circle"
+            iconSize={7}
+            wrapperStyle={{ fontSize: 11, color: "#6e6e73", fontFamily: FONT, paddingTop: 8 }}
+          />
+          {companies.map(co => (
+            <Line
+              key={co}
+              type="monotone"
+              dataKey={co}
+              stroke={CHART_COLORS[co]}
+              strokeWidth={2}
+              dot={{ r: 3.5, fill: CHART_COLORS[co], strokeWidth: 0 }}
+              activeDot={{ r: 5, strokeWidth: 0 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -616,6 +721,9 @@ export default function TenderTracker() {
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [expanded, setExpanded] = useState<number | null>(null);
   const [recurringOnly, setRecurringOnly] = useState(false);
+
+  const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', 'Segoe UI', sans-serif";
+  const MONO = "'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
 
   const dateOrder = (d: string): number => {
     const m: Record<string, number> = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
@@ -642,12 +750,11 @@ export default function TenderTracker() {
     }
     if (sector !== "All") data = data.filter(d => d.sector === sector);
     if (year !== "All") data = data.filter(d => d.date.includes(year));
-
     data.sort((a, b) => {
       let av, bv;
-      if (sort.col === "date") { av = dateOrder(a.date); bv = dateOrder(b.date); }
+      if (sort.col === "date")       { av = dateOrder(a.date); bv = dateOrder(b.date); }
       else if (sort.col === "valuation") { av = a.valuation ?? -1; bv = b.valuation ?? -1; }
-      else if (sort.col === "amount") { av = a.amountKnown ?? -1; bv = b.amountKnown ?? -1; }
+      else if (sort.col === "amount")    { av = a.amountKnown ?? -1; bv = b.amountKnown ?? -1; }
       else { av = (a as Record<string, unknown>)[sort.col] ?? ""; bv = (b as Record<string, unknown>)[sort.col] ?? ""; }
       return sort.dir === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
@@ -657,13 +764,14 @@ export default function TenderTracker() {
   const topDeals = useMemo(() =>
     [...TENDER_DATA]
       .filter(d => d.amountKnown != null)
-      .sort((a, b) => b.amountKnown - a.amountKnown)
-      .slice(0, 5),
+      .sort((a, b) => (b.amountKnown ?? 0) - (a.amountKnown ?? 0))
+      .slice(0, 8),
   []);
+  const topMax = topDeals[0]?.amountKnown ?? 1;
 
-  const totalKnown = TENDER_DATA.filter(d => d.amountKnown != null).reduce((s, d) => s + d.amountKnown, 0);
-  const companies = new Set(TENDER_DATA.map(d => d.company)).size;
-  const confirmed = TENDER_DATA.filter(d => d.amountStatus === "confirmed").length;
+  const totalKnown = TENDER_DATA.filter(d => d.amountKnown != null).reduce((s, d) => s + (d.amountKnown ?? 0), 0);
+  const companies  = new Set(TENDER_DATA.map(d => d.company)).size;
+  const confirmed  = TENDER_DATA.filter(d => d.amountStatus === "confirmed").length;
 
   const toggleSort = (col: string) =>
     setSort(s => s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
@@ -675,18 +783,12 @@ export default function TenderTracker() {
   );
 
   const headers = [
-    { key: "company", label: "Company", w: 180 },
-    { key: "sector", label: "Sector", w: 140 },
-    { key: "date", label: "Date", w: 90 },
-    { key: "dealType", label: "Deal Type", w: 180 },
-    { key: "valuation", label: "Valuation", w: 130 },
-    { key: "amount", label: "Amount", w: 110 },
-    { key: "amountStatus", label: "Confidence", w: 120 },
-    { key: "recurring", label: "Cadence", w: 100 },
+    { key: "company",      label: "Company",    w: 200 },
+    { key: "date",         label: "Date",        w: 90  },
+    { key: "valuation",    label: "Valuation",   w: 130 },
+    { key: "amount",       label: "Amount",      w: 120 },
+    { key: "amountStatus", label: "Confidence",  w: 110 },
   ];
-
-  const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', 'Segoe UI', sans-serif";
-  const MONO = "'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
 
   return (
     <div style={{ background: "#f5f5f7", minHeight: "100vh", fontFamily: FONT, WebkitFontSmoothing: "antialiased" }}>
@@ -715,12 +817,11 @@ export default function TenderTracker() {
           <p style={{ margin: "0 0 28px", color: "rgba(255,255,255,0.6)", fontSize: 13, letterSpacing: "0.01em" }}>
             Every known private market liquidity event · 2022–2026 · Enriched with buyers, share prices & deal mechanics
           </p>
-
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <StatCard label="Total Events" value={TENDER_DATA.length} sub={`${companies} companies`} />
-            <StatCard label="Known Liquidity" value={`$${(totalKnown / 1000).toFixed(1)}B+`} sub="confirmed + reported" />
-            <StatCard label="Confirmed" value={confirmed} sub="company/press verified" />
-            <StatCard label="Undisclosed" value={TENDER_DATA.filter(d => d.amountStatus === "undisclosed").length} sub="size not public" />
+            <StatCard label="Total Events"       value={TENDER_DATA.length}       sub={`${companies} companies`} />
+            <StatCard label="Known Liquidity"    value={`$${(totalKnown / 1000).toFixed(1)}B+`} sub="confirmed + reported" />
+            <StatCard label="Confirmed"          value={confirmed}                sub="company/press verified" />
+            <StatCard label="Undisclosed"        value={TENDER_DATA.filter(d => d.amountStatus === "undisclosed").length} sub="size not public" />
             <StatCard label="Recurring Programs" value={TENDER_DATA.filter(d => d.recurring).length} sub="multi-event companies" />
           </div>
         </div>
@@ -728,31 +829,45 @@ export default function TenderTracker() {
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 40px 60px" }}>
 
-        {/* ── TOP 5 DEALS ── */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12, fontFamily: MONO }}>
+        {/* ── BIGGEST DEALS LEADERBOARD ── */}
+        <div style={{
+          background: "#fff", borderRadius: 14,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+          padding: "22px 28px",
+          marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18, fontFamily: MONO }}>
             Biggest Known Deals
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {topDeals.map((d, i) => {
               const sc = SECTOR_COLORS[d.sector] || "#0071e3";
+              const pct = Math.max(4, ((d.amountKnown ?? 0) / topMax) * 100);
               return (
-                <div key={i} style={{
-                  background: "#fff", borderRadius: 12, padding: "16px 18px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
-                  borderLeft: `3px solid ${sc}`,
-                }}>
-                  <div style={{ fontSize: 10, color: "#aeaeb2", letterSpacing: "0.08em", marginBottom: 6, fontFamily: MONO }}>
-                    #{i + 1} · {d.date}
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  {/* Rank */}
+                  <div style={{ width: 22, textAlign: "right", fontSize: 11, color: "#c7c7cc", fontFamily: MONO, flexShrink: 0 }}>
+                    #{i + 1}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1d1d1f", marginBottom: 2, letterSpacing: "-0.02em" }}>
-                    {d.company}
+                  {/* Company + date */}
+                  <div style={{ width: 180, flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1d1d1f", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+                      {d.company}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#aeaeb2", fontFamily: MONO }}>{d.date}</div>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: sc, letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+                  {/* Bar */}
+                  <div style={{ flex: 1, height: 8, background: "#f0f0f5", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{
+                      width: `${pct}%`, height: "100%",
+                      background: sc,
+                      borderRadius: 99,
+                      transition: "width 0.6s ease",
+                    }} />
+                  </div>
+                  {/* Amount */}
+                  <div style={{ width: 80, textAlign: "right", fontSize: 15, fontWeight: 700, color: sc, fontFamily: MONO, letterSpacing: "-0.02em", flexShrink: 0 }}>
                     {fmtAmt(d.amountKnown, d.amountStatus)}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#6e6e73", marginTop: 4 }}>
-                    at {fmtVal(d.valuation)} valuation
                   </div>
                 </div>
               );
@@ -760,13 +875,17 @@ export default function TenderTracker() {
           </div>
         </div>
 
+        {/* ── VALUATION CHART ── */}
+        <ValuationChart />
+
         {/* ── FILTERS ── */}
         <div style={{
-          background: "#fff", borderRadius: 12, padding: "14px 18px",
+          background: "#fff", borderRadius: 12, padding: "12px 16px",
           boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
-          marginBottom: 12,
-          display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center",
+          marginBottom: 10,
+          display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center",
         }}>
+          {/* Search */}
           <input
             placeholder="Search company, buyers, notes…"
             value={search}
@@ -780,26 +899,31 @@ export default function TenderTracker() {
 
           <div style={{ width: 1, height: 20, background: "rgba(0,0,0,0.1)" }} />
 
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {SECTORS.map(s => {
-              const active = sector === s;
-              const c = SECTOR_COLORS[s] || "#0071e3";
-              return (
-                <button key={s} onClick={() => setSector(s)} style={{
-                  background: active ? c : "transparent",
-                  color: active ? "#fff" : "#6e6e73",
-                  border: `1px solid ${active ? c : "rgba(0,0,0,0.12)"}`,
-                  borderRadius: 20, padding: "4px 11px", fontSize: 11,
-                  cursor: "pointer", fontFamily: FONT, transition: "all 0.12s",
-                  fontWeight: active ? 600 : 400,
-                }}>{s}</button>
-              );
-            })}
-          </div>
+          {/* Sector dropdown */}
+          <select
+            value={sector}
+            onChange={e => setSector(e.target.value)}
+            style={{
+              background: "#f5f5f7", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8,
+              color: sector === "All" ? "#6e6e73" : "#1d1d1f",
+              padding: "7px 28px 7px 12px", fontFamily: FONT, fontSize: 13,
+              outline: "none", cursor: "pointer",
+              appearance: "none",
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 10px center",
+              fontWeight: sector === "All" ? 400 : 600,
+            }}
+          >
+            {SECTORS.map(s => (
+              <option key={s} value={s}>{s === "All" ? "All Sectors" : s}</option>
+            ))}
+          </select>
 
           <div style={{ width: 1, height: 20, background: "rgba(0,0,0,0.1)" }} />
 
-          <div style={{ display: "flex", gap: 5 }}>
+          {/* Year pills */}
+          <div style={{ display: "flex", gap: 4 }}>
             {YEARS.map(y => {
               const active = year === y;
               return (
@@ -817,10 +941,11 @@ export default function TenderTracker() {
 
           <div style={{ width: 1, height: 20, background: "rgba(0,0,0,0.1)" }} />
 
+          {/* Recurring toggle */}
           <button onClick={() => setRecurringOnly(r => !r)} style={{
-            background: recurringOnly ? "#f5f5f7" : "transparent",
-            color: recurringOnly ? "#1d1d1f" : "#6e6e73",
-            border: `1px solid ${recurringOnly ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.12)"}`,
+            background: recurringOnly ? "#fff3e8" : "transparent",
+            color: recurringOnly ? "#b45309" : "#6e6e73",
+            border: `1px solid ${recurringOnly ? "#fcd34d" : "rgba(0,0,0,0.12)"}`,
             borderRadius: 20, padding: "4px 11px", fontSize: 11,
             cursor: "pointer", fontFamily: FONT, fontWeight: recurringOnly ? 600 : 400,
           }}>
@@ -832,8 +957,8 @@ export default function TenderTracker() {
           </span>
         </div>
 
-        {/* Data quality legend */}
-        <div style={{ display: "flex", gap: 18, marginBottom: 14, paddingLeft: 4, flexWrap: "wrap" }}>
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 16, marginBottom: 10, paddingLeft: 2, flexWrap: "wrap", alignItems: "center" }}>
           {Object.entries(STATUS_COLORS).map(([k, c]) => (
             <div key={k} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#8e8e93" }}>
               <span style={{ width: 7, height: 7, borderRadius: 2, background: c, display: "inline-block" }} />
@@ -855,7 +980,7 @@ export default function TenderTracker() {
                 <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#fafafa" }}>
                   {headers.map(col => (
                     <th key={col.key} onClick={() => toggleSort(col.key)} style={{
-                      textAlign: "left", padding: "11px 14px", fontSize: 10,
+                      textAlign: "left", padding: "10px 14px", fontSize: 10,
                       letterSpacing: "0.1em", color: sort.col === col.key ? "#0071e3" : "#8e8e93",
                       cursor: "pointer", userSelect: "none", fontWeight: 600,
                       textTransform: "uppercase", whiteSpace: "nowrap",
@@ -864,8 +989,8 @@ export default function TenderTracker() {
                       {col.label}<SortIcon col={col.key} />
                     </th>
                   ))}
-                  <th style={{ padding: "11px 14px", fontSize: 10, color: "#8e8e93", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
-                    Notes / Buyers
+                  <th style={{ padding: "10px 14px", fontSize: 10, color: "#8e8e93", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
+                    Notes
                   </th>
                 </tr>
               </thead>
@@ -877,7 +1002,8 @@ export default function TenderTracker() {
                   const valPct = row.valuation ? Math.max(4, (row.valuation / MAX_VAL) * 100) : 0;
 
                   return (
-                    <tr key={i}
+                    <tr
+                      key={i}
                       onClick={() => setExpanded(isExp ? null : i)}
                       style={{
                         borderBottom: "1px solid rgba(0,0,0,0.05)",
@@ -888,49 +1014,43 @@ export default function TenderTracker() {
                       onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = "#f5f5f7"; }}
                       onMouseLeave={e => { if (!isExp) e.currentTarget.style.background = "transparent"; }}
                     >
-                      {/* Company */}
-                      <td style={{ padding: "11px 14px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      {/* Company + sector */}
+                      <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <Avatar name={row.company} color={sc} />
-                          <span style={{ fontWeight: 600, fontSize: 13, color: "#1d1d1f", letterSpacing: "-0.01em" }}>
-                            {row.company}
-                          </span>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#1d1d1f", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+                              {row.company}
+                            </div>
+                            <div style={{
+                              display: "inline-block",
+                              background: sc + "12", color: sc,
+                              border: `1px solid ${sc}25`, borderRadius: 20,
+                              padding: "1px 7px", fontSize: 9, fontWeight: 500, marginTop: 2,
+                            }}>{row.sector}</div>
+                          </div>
                         </div>
                       </td>
 
-                      {/* Sector */}
-                      <td style={{ padding: "11px 14px" }}>
-                        <span style={{
-                          background: sc + "12", color: sc,
-                          border: `1px solid ${sc}25`, borderRadius: 20,
-                          padding: "2px 9px", fontSize: 10, whiteSpace: "nowrap", fontWeight: 500,
-                        }}>{row.sector}</span>
-                      </td>
-
                       {/* Date */}
-                      <td style={{ padding: "11px 14px", fontSize: 12, color: "#6e6e73", whiteSpace: "nowrap", fontFamily: MONO }}>
+                      <td style={{ padding: "10px 14px", fontSize: 12, color: "#6e6e73", whiteSpace: "nowrap", fontFamily: MONO }}>
                         {row.date}
                       </td>
 
-                      {/* Deal Type */}
-                      <td style={{ padding: "11px 14px", fontSize: 11, color: "#6e6e73", whiteSpace: "nowrap" }}>
-                        {row.dealType}
-                      </td>
-
                       {/* Valuation */}
-                      <td style={{ padding: "11px 14px", whiteSpace: "nowrap" }}>
+                      <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
                         <div style={{ fontSize: 13, color: row.valuation ? "#1d1d1f" : "#c7c7cc", fontWeight: 600, fontFamily: MONO, marginBottom: 4 }}>
                           {fmtVal(row.valuation)}
                         </div>
                         {row.valuation && (
-                          <div style={{ width: 72, height: 3, background: "#e5e5ea", borderRadius: 99 }}>
+                          <div style={{ width: 64, height: 3, background: "#e5e5ea", borderRadius: 99 }}>
                             <div style={{ width: `${valPct}%`, height: "100%", background: sc, borderRadius: 99 }} />
                           </div>
                         )}
                       </td>
 
                       {/* Amount */}
-                      <td style={{ padding: "11px 14px", whiteSpace: "nowrap" }}>
+                      <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
                         <span style={{
                           fontSize: 13, fontFamily: MONO, fontWeight: row.amountKnown ? 600 : 400,
                           color: row.amountKnown
@@ -942,27 +1062,14 @@ export default function TenderTracker() {
                       </td>
 
                       {/* Confidence */}
-                      <td style={{ padding: "11px 14px" }}>
+                      <td style={{ padding: "10px 14px" }}>
                         <StatusBadge status={row.amountStatus} />
-                      </td>
-
-                      {/* Cadence */}
-                      <td style={{ padding: "11px 14px" }}>
-                        <span style={{
-                          fontSize: 10, fontWeight: 500,
-                          color: row.recurring ? "#b45309" : "#8e8e93",
-                          background: row.recurring ? "#fef3c7" : "#f5f5f7",
-                          border: `1px solid ${row.recurring ? "#fcd34d" : "rgba(0,0,0,0.08)"}`,
-                          borderRadius: 20, padding: "2px 8px", whiteSpace: "nowrap",
-                        }}>
-                          {row.recurring ? "Recurring" : "One-off"}
-                        </span>
                       </td>
 
                       {/* Notes */}
                       <td style={{
-                        padding: "11px 14px", fontSize: 12, color: "#6e6e73",
-                        maxWidth: 340,
+                        padding: "10px 14px", fontSize: 12, color: "#6e6e73",
+                        maxWidth: 400,
                         overflow: isExp ? "visible" : "hidden",
                         textOverflow: isExp ? "clip" : "ellipsis",
                         whiteSpace: isExp ? "normal" : "nowrap",
@@ -970,18 +1077,29 @@ export default function TenderTracker() {
                       }}>
                         {isExp ? (
                           <div>
-                            <div style={{ color: "#1d1d1f", marginBottom: 8, fontSize: 13, lineHeight: 1.6 }}>{row.notes}</div>
-                            {row.buyers && (
-                              <div style={{ color: "#6e6e73", fontSize: 11 }}>
-                                <span style={{ color: "#0071e3", fontWeight: 600 }}>Buyers: </span>{row.buyers}
+                            <div style={{ color: "#1d1d1f", marginBottom: 10, fontSize: 13, lineHeight: 1.65 }}>
+                              {row.notes}
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                              {row.buyers && (
+                                <div style={{ fontSize: 11, color: "#6e6e73" }}>
+                                  <span style={{ color: "#0071e3", fontWeight: 600 }}>Buyers: </span>{row.buyers}
+                                </div>
+                              )}
+                              {row.sharePrice && (
+                                <div style={{ fontSize: 11, color: "#6e6e73" }}>
+                                  <span style={{ color: "#1a7f3c", fontWeight: 600 }}>Share price: </span>
+                                  ${row.sharePrice.toLocaleString()}/share
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11, color: "#6e6e73" }}>
+                                <span style={{ color: "#b45309", fontWeight: 600 }}>Deal type: </span>{row.dealType}
                               </div>
-                            )}
-                            {row.sharePrice && (
-                              <div style={{ color: "#6e6e73", fontSize: 11, marginTop: 4 }}>
-                                <span style={{ color: "#1a7f3c", fontWeight: 600 }}>Share price: </span>
-                                ${row.sharePrice.toLocaleString()}/share
+                              <div style={{ fontSize: 11, color: "#6e6e73" }}>
+                                <span style={{ color: "#8e8e93", fontWeight: 600 }}>Cadence: </span>
+                                {row.recurring ? "Recurring program" : "One-off event"}
                               </div>
-                            )}
+                            </div>
                           </div>
                         ) : row.notes}
                       </td>
