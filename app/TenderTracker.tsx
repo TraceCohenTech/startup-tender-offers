@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
@@ -599,6 +599,49 @@ const fmtAmt = (a: number | null, status: string): string => {
   return (status === "reported" ? "~" : "") + base;
 };
 
+// ─── ANIMATIONS ───────────────────────────────────────────────────────────────
+const GLOBAL_CSS = `
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes barGrow {
+    from { width: 0%; }
+  }
+  @keyframes tickerScroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+  }
+  .tender-row { animation: rowIn 0.22s ease both; }
+  .bar-grow   { animation: barGrow 0.9s cubic-bezier(0.16,1,0.3,1) both; }
+  .ticker-track { animation: tickerScroll 32s linear infinite; }
+  .live-dot   { animation: livePulse 1.6s ease-in-out infinite; }
+`;
+
+function useCountUp(target: number, duration = 1400): number {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const total = Math.round(duration / 16);
+    const id = setInterval(() => {
+      frame++;
+      const ease = 1 - Math.pow(1 - frame / total, 3);
+      setVal(Math.round(ease * target));
+      if (frame >= total) { setVal(target); clearInterval(id); }
+    }, 16);
+    return () => clearInterval(id);
+  }, [target, duration]);
+  return val;
+}
+
 // ─── SUBCOMPONENTS ────────────────────────────────────────────────────────────
 function Avatar({ name, color }: { name: string; color: string }) {
   return (
@@ -721,9 +764,21 @@ export default function TenderTracker() {
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [expanded, setExpanded] = useState<number | null>(null);
   const [recurringOnly, setRecurringOnly] = useState(false);
+  const [filterKey, setFilterKey] = useState(0);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', 'Segoe UI', sans-serif";
   const MONO = "'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
+
+  const totalKnown = TENDER_DATA.filter(d => d.amountKnown != null).reduce((s, d) => s + (d.amountKnown ?? 0), 0);
+  const companies  = new Set(TENDER_DATA.map(d => d.company)).size;
+  const confirmed  = TENDER_DATA.filter(d => d.amountStatus === "confirmed").length;
+
+  // count-up values (called unconditionally to respect hooks rules)
+  const animEvents  = useCountUp(TENDER_DATA.length, 1000);
+  const animTotal   = useCountUp(Math.round(totalKnown / 1000 * 10), 1400); // tenths of B
+  const animConfirm = useCountUp(confirmed, 900);
+  const animCos     = useCountUp(companies, 800);
 
   const dateOrder = (d: string): number => {
     const m: Record<string, number> = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
@@ -752,14 +807,14 @@ export default function TenderTracker() {
     if (year !== "All") data = data.filter(d => d.date.includes(year));
     data.sort((a, b) => {
       let av, bv;
-      if (sort.col === "date")       { av = dateOrder(a.date); bv = dateOrder(b.date); }
+      if (sort.col === "date")           { av = dateOrder(a.date); bv = dateOrder(b.date); }
       else if (sort.col === "valuation") { av = a.valuation ?? -1; bv = b.valuation ?? -1; }
       else if (sort.col === "amount")    { av = a.amountKnown ?? -1; bv = b.amountKnown ?? -1; }
       else { av = (a as Record<string, unknown>)[sort.col] ?? ""; bv = (b as Record<string, unknown>)[sort.col] ?? ""; }
       return sort.dir === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return data;
-  }, [search, sector, year, sort, recurringOnly]);
+  }, [search, sector, year, sort, recurringOnly, filterKey]);
 
   const topDeals = useMemo(() =>
     [...TENDER_DATA]
@@ -768,10 +823,6 @@ export default function TenderTracker() {
       .slice(0, 8),
   []);
   const topMax = topDeals[0]?.amountKnown ?? 1;
-
-  const totalKnown = TENDER_DATA.filter(d => d.amountKnown != null).reduce((s, d) => s + (d.amountKnown ?? 0), 0);
-  const companies  = new Set(TENDER_DATA.map(d => d.company)).size;
-  const confirmed  = TENDER_DATA.filter(d => d.amountStatus === "confirmed").length;
 
   const toggleSort = (col: string) =>
     setSort(s => s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "desc" });
@@ -782,16 +833,43 @@ export default function TenderTracker() {
     </span>
   );
 
+  const surpriseMe = () => {
+    setSector("All"); setYear("All"); setSearch(""); setRecurringOnly(false);
+    const idx = Math.floor(Math.random() * TENDER_DATA.length);
+    setExpanded(idx);
+    setFilterKey(k => k + 1);
+    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  };
+
+  const focusCompany = (company: string) => {
+    setSearch(company); setSector("All"); setYear("All");
+    setExpanded(null);
+    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  };
+
   const headers = [
-    { key: "company",      label: "Company",    w: 200 },
-    { key: "date",         label: "Date",        w: 90  },
-    { key: "valuation",    label: "Valuation",   w: 130 },
-    { key: "amount",       label: "Amount",      w: 120 },
-    { key: "amountStatus", label: "Confidence",  w: 110 },
+    { key: "company",      label: "Company",   w: 210 },
+    { key: "date",         label: "Date",       w: 90  },
+    { key: "valuation",    label: "Valuation",  w: 130 },
+    { key: "amount",       label: "Amount",     w: 120 },
+    { key: "amountStatus", label: "Confidence", w: 110 },
   ];
+
+  const TICKER_ITEMS = [
+    "🔥 Databricks Dec 2024 · $10B — largest VC secondary tender in history",
+    "🚀 SpaceX Dec 2025 · $800B valuation · $2.56B tendered",
+    "🤖 OpenAI Oct 2025 · $6.6B · 600+ employees cashed out",
+    "💳 Stripe Feb 2026 · $159B · 7th annual liquidity event",
+    "🧠 Anthropic Apr 2026 · $350B pre-money · employees held back expecting more",
+    "⚡ Ripple Jun 2024 · $700M self-funded buyback · no external investors",
+    "🎨 Figma May 2024 · $23.19/share · employees who sold missed IPO upside at $33",
+    "🌍 Revolut Nov 2025 · $1,381/share · Europe's most valuable private tech co",
+  ];
+  const tickerText = [...TICKER_ITEMS, ...TICKER_ITEMS].join("   ·   ");
 
   return (
     <div style={{ background: "#f5f5f7", minHeight: "100vh", fontFamily: FONT, WebkitFontSmoothing: "antialiased" }}>
+      <style>{GLOBAL_CSS}</style>
 
       {/* Watermark */}
       <div style={{
@@ -805,24 +883,39 @@ export default function TenderTracker() {
       {/* ── HERO ── */}
       <div style={{
         background: "linear-gradient(135deg, #003d82 0%, #0071e3 55%, #0096d6 100%)",
-        padding: "40px 40px 36px",
+        padding: "40px 40px 0",
       }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-          <div style={{ fontSize: 10, letterSpacing: "0.22em", color: "rgba(255,255,255,0.65)", marginBottom: 10, textTransform: "uppercase", fontFamily: MONO }}>
-            ◈ ValueAdd VC · Private Market Intelligence
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span className="live-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} />
+            <span style={{ fontSize: 10, letterSpacing: "0.22em", color: "rgba(255,255,255,0.65)", textTransform: "uppercase", fontFamily: MONO }}>
+              ValueAdd VC · Private Market Intelligence
+            </span>
           </div>
-          <h1 style={{ margin: "0 0 6px", fontSize: "clamp(20px, 3vw, 30px)", fontWeight: 700, color: "#fff", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: "clamp(20px, 3vw, 32px)", fontWeight: 700, color: "#fff", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
             Startup Tender Offers & Secondary Share Sales
           </h1>
-          <p style={{ margin: "0 0 28px", color: "rgba(255,255,255,0.6)", fontSize: 13, letterSpacing: "0.01em" }}>
-            Every known private market liquidity event · 2022–2026 · Enriched with buyers, share prices & deal mechanics
+          <p style={{ margin: "0 0 28px", color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
+            Every known private market liquidity event · 2022–2026
+            <span style={{ color: "rgba(255,255,255,0.35)" }}> · and that&apos;s just what leaked</span>
           </p>
+
+          {/* Stat cards with count-up */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <StatCard label="Total Events"       value={TENDER_DATA.length}       sub={`${companies} companies`} />
-            <StatCard label="Known Liquidity"    value={`$${(totalKnown / 1000).toFixed(1)}B+`} sub="confirmed + reported" />
-            <StatCard label="Confirmed"          value={confirmed}                sub="company/press verified" />
+            <StatCard label="Total Events"       value={animEvents}                           sub={`${animCos} companies`} />
+            <StatCard label="Known Liquidity"    value={`$${(animTotal / 10).toFixed(1)}B+`} sub="confirmed + reported" />
+            <StatCard label="Confirmed"          value={animConfirm}                          sub="company/press verified" />
             <StatCard label="Undisclosed"        value={TENDER_DATA.filter(d => d.amountStatus === "undisclosed").length} sub="size not public" />
             <StatCard label="Recurring Programs" value={TENDER_DATA.filter(d => d.recurring).length} sub="multi-event companies" />
+          </div>
+
+          {/* Scrolling ticker */}
+          <div style={{ marginTop: 24, overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, paddingBottom: 14 }}>
+            <div className="ticker-track" style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: MONO, letterSpacing: "0.03em" }}>
+                {tickerText}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -836,37 +929,66 @@ export default function TenderTracker() {
           padding: "22px 28px",
           marginBottom: 16,
         }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18, fontFamily: MONO }}>
-            Biggest Known Deals
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: MONO }}>
+                Biggest Known Deals
+              </div>
+              <div style={{ fontSize: 11, color: "#aeaeb2", marginTop: 2 }}>Click a row to filter the table below</div>
+            </div>
+            <button
+              onClick={surpriseMe}
+              style={{
+                background: "linear-gradient(135deg, #003d82, #0071e3)",
+                color: "#fff", border: "none", borderRadius: 20,
+                padding: "7px 16px", fontSize: 12, fontWeight: 600,
+                cursor: "pointer", fontFamily: FONT,
+                boxShadow: "0 2px 8px rgba(0,113,227,0.35)",
+                transition: "transform 0.1s, box-shadow 0.1s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,113,227,0.45)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,113,227,0.35)"; }}
+            >
+              🎲 Surprise me
+            </button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
             {topDeals.map((d, i) => {
               const sc = SECTOR_COLORS[d.sector] || "#0071e3";
               const pct = Math.max(4, ((d.amountKnown ?? 0) / topMax) * 100);
+              const pctLabel = Math.round(((d.amountKnown ?? 0) / (totalKnown)) * 100);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  {/* Rank */}
+                <div
+                  key={i}
+                  onClick={() => focusCompany(d.company)}
+                  style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderRadius: 8, padding: "4px 0", transition: "background 0.12s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#f5f5f7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                >
                   <div style={{ width: 22, textAlign: "right", fontSize: 11, color: "#c7c7cc", fontFamily: MONO, flexShrink: 0 }}>
                     #{i + 1}
                   </div>
-                  {/* Company + date */}
                   <div style={{ width: 180, flexShrink: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#1d1d1f", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
                       {d.company}
                     </div>
                     <div style={{ fontSize: 10, color: "#aeaeb2", fontFamily: MONO }}>{d.date}</div>
                   </div>
-                  {/* Bar */}
                   <div style={{ flex: 1, height: 8, background: "#f0f0f5", borderRadius: 99, overflow: "hidden" }}>
-                    <div style={{
-                      width: `${pct}%`, height: "100%",
-                      background: sc,
-                      borderRadius: 99,
-                      transition: "width 0.6s ease",
-                    }} />
+                    <div
+                      className="bar-grow"
+                      style={{
+                        width: `${pct}%`, height: "100%",
+                        background: `linear-gradient(90deg, ${sc}cc, ${sc})`,
+                        borderRadius: 99,
+                        animationDelay: `${i * 0.08}s`,
+                      }}
+                    />
                   </div>
-                  {/* Amount */}
-                  <div style={{ width: 80, textAlign: "right", fontSize: 15, fontWeight: 700, color: sc, fontFamily: MONO, letterSpacing: "-0.02em", flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, color: "#c7c7cc", fontFamily: MONO, width: 36, textAlign: "right", flexShrink: 0 }}>
+                    {pctLabel}%
+                  </div>
+                  <div style={{ width: 84, textAlign: "right", fontSize: 15, fontWeight: 700, color: sc, fontFamily: MONO, letterSpacing: "-0.02em", flexShrink: 0 }}>
                     {fmtAmt(d.amountKnown, d.amountStatus)}
                   </div>
                 </div>
@@ -885,7 +1007,6 @@ export default function TenderTracker() {
           marginBottom: 10,
           display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center",
         }}>
-          {/* Search */}
           <input
             placeholder="Search company, buyers, notes…"
             value={search}
@@ -899,7 +1020,6 @@ export default function TenderTracker() {
 
           <div style={{ width: 1, height: 20, background: "rgba(0,0,0,0.1)" }} />
 
-          {/* Sector dropdown */}
           <select
             value={sector}
             onChange={e => setSector(e.target.value)}
@@ -907,11 +1027,9 @@ export default function TenderTracker() {
               background: "#f5f5f7", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8,
               color: sector === "All" ? "#6e6e73" : "#1d1d1f",
               padding: "7px 28px 7px 12px", fontFamily: FONT, fontSize: 13,
-              outline: "none", cursor: "pointer",
-              appearance: "none",
+              outline: "none", cursor: "pointer", appearance: "none",
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 10px center",
+              backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
               fontWeight: sector === "All" ? 400 : 600,
             }}
           >
@@ -922,7 +1040,6 @@ export default function TenderTracker() {
 
           <div style={{ width: 1, height: 20, background: "rgba(0,0,0,0.1)" }} />
 
-          {/* Year pills */}
           <div style={{ display: "flex", gap: 4 }}>
             {YEARS.map(y => {
               const active = year === y;
@@ -941,7 +1058,6 @@ export default function TenderTracker() {
 
           <div style={{ width: 1, height: 20, background: "rgba(0,0,0,0.1)" }} />
 
-          {/* Recurring toggle */}
           <button onClick={() => setRecurringOnly(r => !r)} style={{
             background: recurringOnly ? "#fff3e8" : "transparent",
             color: recurringOnly ? "#b45309" : "#6e6e73",
@@ -951,6 +1067,19 @@ export default function TenderTracker() {
           }}>
             {recurringOnly ? "◉" : "◎"} Recurring only
           </button>
+
+          {(search || sector !== "All" || year !== "All" || recurringOnly) && (
+            <button
+              onClick={() => { setSearch(""); setSector("All"); setYear("All"); setRecurringOnly(false); setExpanded(null); }}
+              style={{
+                background: "transparent", color: "#aeaeb2",
+                border: "1px solid rgba(0,0,0,0.08)", borderRadius: 20,
+                padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: FONT,
+              }}
+            >
+              ✕ Clear
+            </button>
+          )}
 
           <span style={{ marginLeft: "auto", fontSize: 11, color: "#aeaeb2", fontFamily: MONO }}>
             {filtered.length} / {TENDER_DATA.length}
@@ -965,15 +1094,18 @@ export default function TenderTracker() {
               {k.charAt(0).toUpperCase() + k.slice(1)}
             </div>
           ))}
-          <span style={{ fontSize: 11, color: "#c7c7cc" }}>· Click any row to expand</span>
+          <span style={{ fontSize: 11, color: "#c7c7cc" }}>· Click any row for details</span>
         </div>
 
         {/* ── TABLE ── */}
-        <div style={{
-          background: "#fff", borderRadius: 14,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
-          overflow: "hidden",
-        }}>
+        <div
+          ref={tableRef}
+          style={{
+            background: "#fff", borderRadius: 14,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+            overflow: "hidden",
+          }}
+        >
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -983,8 +1115,7 @@ export default function TenderTracker() {
                       textAlign: "left", padding: "10px 14px", fontSize: 10,
                       letterSpacing: "0.1em", color: sort.col === col.key ? "#0071e3" : "#8e8e93",
                       cursor: "pointer", userSelect: "none", fontWeight: 600,
-                      textTransform: "uppercase", whiteSpace: "nowrap",
-                      minWidth: col.w,
+                      textTransform: "uppercase", whiteSpace: "nowrap", minWidth: col.w,
                     }}>
                       {col.label}<SortIcon col={col.key} />
                     </th>
@@ -1003,31 +1134,41 @@ export default function TenderTracker() {
 
                   return (
                     <tr
-                      key={i}
+                      key={`${row.company}-${row.date}`}
+                      className="tender-row"
                       onClick={() => setExpanded(isExp ? null : i)}
                       style={{
                         borderBottom: "1px solid rgba(0,0,0,0.05)",
                         background: isExp ? "#f0f6ff" : "transparent",
-                        cursor: "pointer", transition: "background 0.1s",
+                        cursor: "pointer",
                         borderLeft: `3px solid ${isExp ? ac : "transparent"}`,
+                        animationDelay: `${Math.min(i * 0.018, 0.4)}s`,
                       }}
-                      onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = "#f5f5f7"; }}
+                      onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = "#f7f7f9"; }}
                       onMouseLeave={e => { if (!isExp) e.currentTarget.style.background = "transparent"; }}
                     >
-                      {/* Company + sector */}
+                      {/* Company + sector + deal type badge */}
                       <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <Avatar name={row.company} color={sc} />
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: "#1d1d1f", letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#1d1d1f", letterSpacing: "-0.01em", lineHeight: 1.25 }}>
                               {row.company}
                             </div>
-                            <div style={{
-                              display: "inline-block",
-                              background: sc + "12", color: sc,
-                              border: `1px solid ${sc}25`, borderRadius: 20,
-                              padding: "1px 7px", fontSize: 9, fontWeight: 500, marginTop: 2,
-                            }}>{row.sector}</div>
+                            <div style={{ display: "flex", gap: 4, marginTop: 2, flexWrap: "nowrap" }}>
+                              <span style={{
+                                background: sc + "12", color: sc,
+                                border: `1px solid ${sc}25`, borderRadius: 20,
+                                padding: "1px 7px", fontSize: 9, fontWeight: 500,
+                              }}>{row.sector}</span>
+                              {row.recurring && (
+                                <span style={{
+                                  background: "#fef3c7", color: "#b45309",
+                                  border: "1px solid #fcd34d", borderRadius: 20,
+                                  padding: "1px 6px", fontSize: 9, fontWeight: 500,
+                                }}>↻ recurring</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -1076,13 +1217,20 @@ export default function TenderTracker() {
                         lineHeight: 1.55,
                       }}>
                         {isExp ? (
-                          <div>
-                            <div style={{ color: "#1d1d1f", marginBottom: 10, fontSize: 13, lineHeight: 1.65 }}>
+                          <div style={{ animation: "fadeInUp 0.2s ease both" }}>
+                            <div style={{ color: "#1d1d1f", marginBottom: 12, fontSize: 13, lineHeight: 1.7 }}>
                               {row.notes}
                             </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                              <span style={{
+                                background: ac + "14", color: ac,
+                                border: `1px solid ${ac}30`, borderRadius: 20,
+                                padding: "3px 10px", fontSize: 11, fontWeight: 600,
+                              }}>
+                                {row.dealType}
+                              </span>
                               {row.buyers && (
-                                <div style={{ fontSize: 11, color: "#6e6e73" }}>
+                                <div style={{ fontSize: 11, color: "#6e6e73", width: "100%" }}>
                                   <span style={{ color: "#0071e3", fontWeight: 600 }}>Buyers: </span>{row.buyers}
                                 </div>
                               )}
@@ -1092,13 +1240,6 @@ export default function TenderTracker() {
                                   ${row.sharePrice.toLocaleString()}/share
                                 </div>
                               )}
-                              <div style={{ fontSize: 11, color: "#6e6e73" }}>
-                                <span style={{ color: "#b45309", fontWeight: 600 }}>Deal type: </span>{row.dealType}
-                              </div>
-                              <div style={{ fontSize: 11, color: "#6e6e73" }}>
-                                <span style={{ color: "#8e8e93", fontWeight: 600 }}>Cadence: </span>
-                                {row.recurring ? "Recurring program" : "One-off event"}
-                              </div>
                             </div>
                           </div>
                         ) : row.notes}
@@ -1111,8 +1252,10 @@ export default function TenderTracker() {
           </div>
 
           {filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px", color: "#8e8e93", fontSize: 13 }}>
-              No records match your filters.
+            <div style={{ textAlign: "center", padding: "56px 48px", color: "#8e8e93" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1d1d1f", marginBottom: 6 }}>No deals found</div>
+              <div style={{ fontSize: 13 }}>Try broadening your search or clearing the filters.</div>
             </div>
           )}
         </div>
@@ -1132,7 +1275,6 @@ export default function TenderTracker() {
           <p style={{ fontSize: 11, color: "#aeaeb2", lineHeight: 1.7, margin: 0, maxWidth: 900 }}>
             Sources: PitchBook · Bloomberg · CNBC · TechCrunch · Reuters · Crunchbase · Axios · Sacra · WSJ · Fortune · The Information · Economic Times · SecondaryLink · Compa · Company press releases
             &nbsp;·&nbsp; &ldquo;Confirmed&rdquo; = company or press release verified. &ldquo;Reported&rdquo; = single credible source. &ldquo;Undisclosed&rdquo; = no public figure.
-            &nbsp;·&nbsp; SpaceX semi-annual cadence; some amounts estimated from authorized-buyer documents. Click rows to expand.
             &nbsp;·&nbsp; Last updated June 2026.
           </p>
         </div>
