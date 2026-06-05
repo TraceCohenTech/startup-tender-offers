@@ -37,7 +37,7 @@ const TENDER_DATA = [
     company: "OpenAI", sector: "AI", date: "Oct 2025", valuation: 500,
     amountKnown: 6600, amountStatus: "confirmed",
     sharePrice: null, buyers: "SoftBank, Thrive Capital, Dragoneer, MGX (Abu Dhabi), T. Rowe Price",
-    notes: "Authorized up to $10.3B; only ~$6.6B tendered (employees held back). 600+ employees; 75+ cashed out max $30M each. Largest private employee liquidity event in tech history.",
+    notes: "Authorized up to $10.3B; only ~$6.6B tendered (employees held back). 600+ employees; 75+ cashed out max $30M each. Employees held profit participation units (PPUs), not traditional equity. ~$2B+ went to taxes out of the $6.6B. Largest private employee liquidity event in tech history.",
     recurring: true, dealType: "Employee Tender",
   },
 
