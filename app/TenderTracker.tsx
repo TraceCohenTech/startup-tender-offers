@@ -7,7 +7,7 @@ import {
 } from "recharts";
 
 // ─── DATASET ─────────────────────────────────────────────────────────────────
-// 70 events · 33 companies · 2022–2026
+// 68 events · 33 companies · 2022–2026
 // Sources: PitchBook · Bloomberg · CNBC · TechCrunch · Reuters · Axios · WSJ
 //          · Sacra · Forge Global · SecondaryLink · Compa · Company press releases
 const TENDER_DATA = [
@@ -495,24 +495,6 @@ const TENDER_DATA = [
     recurring: false, dealType: "Employee Tender",
   },
 
-  // ══ OPENAI (continued) ═══════════════════════════════════════════════════════
-  {
-    company: "OpenAI", sector: "AI", date: "Mar 2026", valuation: 852,
-    amountKnown: 122000, amountStatus: "confirmed",
-    sharePrice: null, buyers: "Amazon ($50B), Nvidia ($30B), SoftBank ($30B), a16z, and others",
-    notes: "$122B raise at $852B valuation — largest single funding round in startup history. Amazon, Nvidia, SoftBank each committed $30–50B. Closed March 31, 2026. Included secondary component for existing shareholders. Combined with $500B Oct 2025 tender, OpenAI has raised ~$129B in 6 months.",
-    recurring: true, dealType: "Primary Round (w/ Secondary)",
-  },
-
-  // ══ ANTHROPIC (continued) ════════════════════════════════════════════════════
-  {
-    company: "Anthropic", sector: "AI", date: "May 2026", valuation: 965,
-    amountKnown: 65000, amountStatus: "confirmed",
-    sharePrice: null, buyers: "Altimeter (lead), Dragoneer, Greenoaks, Sequoia, and others",
-    notes: "$65B Series H at $965B pre-money — now world's most valuable AI startup, surpassing OpenAI. Led by Altimeter, Dragoneer, Greenoaks, Sequoia. ARR crossed $47B. Anthropic confidentially filed for IPO (Jun 2026). The Apr 2026 tender at $350B closed 6 weeks before this round at nearly 3x the price.",
-    recurring: false, dealType: "Primary Round",
-  },
-
   // ══ BYTEDANCE (continued) ════════════════════════════════════════════════════
   {
     company: "ByteDance", sector: "Consumer Internet", date: "Feb 2026", valuation: 550,
@@ -581,9 +563,8 @@ const VALUATION_TIMELINE = [
   { t: "Oct '25", OpenAI: 500,  SpaceX: null, Stripe: null, Databricks: null, Anthropic: null },
   { t: "Dec '25", OpenAI: null, SpaceX: 800,  Stripe: null, Databricks: null, Anthropic: null },
   { t: "Feb '26", OpenAI: null, SpaceX: null, Stripe: 159,  Databricks: null, Anthropic: null },
-  { t: "Mar '26", OpenAI: 852,  SpaceX: null, Stripe: null, Databricks: 134,  Anthropic: null },
+  { t: "Mar '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: 134,  Anthropic: null },
   { t: "Apr '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 350 },
-  { t: "May '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 965 },
   { t: "Jun '26", OpenAI: null, SpaceX: 1770, Stripe: null, Databricks: null, Anthropic: null },
 ];
 
