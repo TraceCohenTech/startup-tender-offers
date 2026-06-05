@@ -7,7 +7,7 @@ import {
 } from "recharts";
 
 // ─── DATASET ─────────────────────────────────────────────────────────────────
-// 63 events · 31 companies · 2022–2026
+// 70 events · 33 companies · 2022–2026
 // Sources: PitchBook · Bloomberg · CNBC · TechCrunch · Reuters · Axios · WSJ
 //          · Sacra · Forge Global · SecondaryLink · Compa · Company press releases
 const TENDER_DATA = [
@@ -95,7 +95,7 @@ const TENDER_DATA = [
     company: "SpaceX", sector: "Aerospace", date: "Dec 2025", valuation: 800,
     amountKnown: 2560, amountStatus: "confirmed",
     sharePrice: 421, buyers: "SpaceX + institutional investors",
-    notes: "$2.56B in insider shares. $421/share. Doubled valuation from Jul 2025 in 6 months. Ahead of reported 2026 IPO at $1.5T target.",
+    notes: "$2.56B in insider shares. $421/share. Doubled valuation from Jul 2025 in 6 months. SpaceX merged with xAI on Feb 2, 2026 at $1T SpaceX/$250B xAI combined. SpaceX filed IPO at $135/share in Jun 2026 implying ~$1.77T valuation — largest public offering in history.",
     recurring: true, dealType: "Employee Tender + Buyback",
   },
 
@@ -155,7 +155,7 @@ const TENDER_DATA = [
     company: "Anthropic", sector: "AI", date: "Apr 2026", valuation: 350,
     amountKnown: null, amountStatus: "reported",
     sharePrice: null, buyers: "Curated institutional syndicate (Coatue, GIC, others)",
-    notes: "Targeted ~$6B; fell short as employees held shares betting on higher IPO. ~$5–6B final size per reports. Pre-money $350B. ARR crossed $30B within weeks of tender closing.",
+    notes: "Targeted ~$6B; fell short as employees held shares betting on higher IPO. ~$5–6B final size per reports. Pre-money $350B. ARR crossed $30B within weeks of tender closing. Employees who held were right — Anthropic raised at $965B just 6 weeks later (May 2026).",
     recurring: false, dealType: "Employee Tender",
   },
 
@@ -494,6 +494,69 @@ const TENDER_DATA = [
     notes: "Named in WSJ/Compa roundup as participating in 2025 employee tender trend. AI presentation startup. Exact terms, valuation, and size not publicly disclosed. Low-confidence inclusion.",
     recurring: false, dealType: "Employee Tender",
   },
+
+  // ══ OPENAI (continued) ═══════════════════════════════════════════════════════
+  {
+    company: "OpenAI", sector: "AI", date: "Mar 2026", valuation: 852,
+    amountKnown: 122000, amountStatus: "confirmed",
+    sharePrice: null, buyers: "Amazon ($50B), Nvidia ($30B), SoftBank ($30B), a16z, and others",
+    notes: "$122B raise at $852B valuation — largest single funding round in startup history. Amazon, Nvidia, SoftBank each committed $30–50B. Closed March 31, 2026. Included secondary component for existing shareholders. Combined with $500B Oct 2025 tender, OpenAI has raised ~$129B in 6 months.",
+    recurring: true, dealType: "Primary Round (w/ Secondary)",
+  },
+
+  // ══ ANTHROPIC (continued) ════════════════════════════════════════════════════
+  {
+    company: "Anthropic", sector: "AI", date: "May 2026", valuation: 965,
+    amountKnown: 65000, amountStatus: "confirmed",
+    sharePrice: null, buyers: "Altimeter (lead), Dragoneer, Greenoaks, Sequoia, and others",
+    notes: "$65B Series H at $965B pre-money — now world's most valuable AI startup, surpassing OpenAI. Led by Altimeter, Dragoneer, Greenoaks, Sequoia. ARR crossed $47B. Anthropic confidentially filed for IPO (Jun 2026). The Apr 2026 tender at $350B closed 6 weeks before this round at nearly 3x the price.",
+    recurring: false, dealType: "Primary Round",
+  },
+
+  // ══ BYTEDANCE (continued) ════════════════════════════════════════════════════
+  {
+    company: "ByteDance", sector: "Consumer Internet", date: "Feb 2026", valuation: 550,
+    amountKnown: null, amountStatus: "reported",
+    sharePrice: null, buyers: "Institutional investors via General Atlantic",
+    notes: "General Atlantic marketed a ByteDance stake at $550B — up from $480B (Nov 2025), $330B (Aug 2025), and $268B (2024). Surge followed U.S. government approval of TikTok restructuring into a majority U.S.-owned JV (Jan 2026). Most valuable private company in the world.",
+    recurring: true, dealType: "Investor Secondary",
+  },
+
+  // ══ RAMP (continued) ══════════════════════════════════════════════════════════
+  {
+    company: "Ramp", sector: "Fintech", date: "Jun 2026", valuation: 44,
+    amountKnown: 750, amountStatus: "confirmed",
+    sharePrice: null, buyers: "ICONIQ (co-lead), GIC (co-lead), Ontario Teachers' Pension Plan",
+    notes: "$750M Series F at $44B. Crossed $1B ARR with positive free cash flow. 6th valuation milestone in 24 months. ICONIQ, GIC, Ontario Teachers' co-led. Ramp now valued at 8x its $5.8B down-round nadir in 2023.",
+    recurring: false, dealType: "Primary + Employee Tender",
+  },
+
+  // ══ ELEVENLABS (continued) ═══════════════════════════════════════════════════
+  {
+    company: "ElevenLabs", sector: "AI", date: "Feb 2026", valuation: 11,
+    amountKnown: 500, amountStatus: "confirmed",
+    sharePrice: null, buyers: "Sequoia (lead), a16z, ICONIQ",
+    notes: "$500M Series D at $11B. Sequoia led. 67% step-up from the $6.6B employee tender in 2025. Closed $330M ARR at end of 2025. ElevenLabs has tripled valuation in under 13 months.",
+    recurring: false, dealType: "Primary Round",
+  },
+
+  // ══ HARVEY (continued) ════════════════════════════════════════════════════════
+  {
+    company: "Harvey", sector: "Legal AI", date: "Mar 2026", valuation: 11,
+    amountKnown: 200, amountStatus: "confirmed",
+    sharePrice: null, buyers: "GIC (co-lead), Sequoia (co-lead)",
+    notes: "$200M growth round at $11B. GIC + Sequoia co-led. Total raised exceeds $1B. 38% step-up from $8B in Dec 2025 — third valuation doubling in 12 months. Over 50% of AmLaw 100 firms now use Harvey.",
+    recurring: false, dealType: "Primary Round",
+  },
+
+  // ══ SPACEX IPO FILING ══════════════════════════════════════════════════════════
+  {
+    company: "SpaceX", sector: "Aerospace", date: "Jun 2026", valuation: 1770,
+    amountKnown: 75000, amountStatus: "confirmed",
+    sharePrice: 135, buyers: "Public market (IPO)",
+    notes: "SpaceX filed for IPO targeting $135/share — implying ~$1.77T valuation and raising ~$75B, the largest public offering in history. After absorbing xAI (Feb 2026, $250B xAI/$1T SpaceX), combined entity now includes Grok, xAI compute, and Starlink. Morningstar bear case: $780B. Most likely Nasdaq.",
+    recurring: true, dealType: "IPO Filing",
+  },
 ];
 
 // ─── VALUATION TRAJECTORY ─────────────────────────────────────────────────────
@@ -518,8 +581,10 @@ const VALUATION_TIMELINE = [
   { t: "Oct '25", OpenAI: 500,  SpaceX: null, Stripe: null, Databricks: null, Anthropic: null },
   { t: "Dec '25", OpenAI: null, SpaceX: 800,  Stripe: null, Databricks: null, Anthropic: null },
   { t: "Feb '26", OpenAI: null, SpaceX: null, Stripe: 159,  Databricks: null, Anthropic: null },
-  { t: "Mar '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: 134,  Anthropic: null },
+  { t: "Mar '26", OpenAI: 852,  SpaceX: null, Stripe: null, Databricks: 134,  Anthropic: null },
   { t: "Apr '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 350 },
+  { t: "May '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 965 },
+  { t: "Jun '26", OpenAI: null, SpaceX: 1770, Stripe: null, Databricks: null, Anthropic: null },
 ];
 
 const CHART_COLORS: Record<string, string> = {
@@ -584,11 +649,13 @@ const DEAL_ACCENT: Record<string, string> = {
   "Secondary Sale":                            "#b45309",
   "Investor Secondary":                        "#b45309",
   "Internal Repurchase / Secondary":           "#b45309",
+  "IPO Filing":                                "#7c3aed",
 };
 
 // ─── FORMATTERS ───────────────────────────────────────────────────────────────
 const fmtVal = (v: number | null): string => {
   if (v == null) return "—";
+  if (v >= 1000) return `$${(v / 1000).toFixed(2)}T`;
   if (v >= 1) return `$${v % 1 === 0 ? v : v.toFixed(1)}B`;
   return `$${(v * 1000).toFixed(0)}M`;
 };
@@ -718,11 +785,11 @@ function ValuationChart() {
             interval={2}
           />
           <YAxis
-            tickFormatter={v => `$${v}B`}
+            tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`}
             tick={{ fontSize: 10, fill: "#aeaeb2", fontFamily: FONT }}
             axisLine={false}
             tickLine={false}
-            width={46}
+            width={52}
           />
           <Tooltip
             contentStyle={{
@@ -730,7 +797,10 @@ function ValuationChart() {
               borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
               fontSize: 12, fontFamily: FONT,
             }}
-            formatter={(value, name) => [`$${value}B`, name as string]}
+            formatter={(value, name) => {
+              const v = value as number;
+              return [v >= 1000 ? `$${(v/1000).toFixed(2)}T` : `$${v}B`, name as string];
+            }}
             labelStyle={{ color: "#6e6e73", fontSize: 11, marginBottom: 4 }}
           />
           <Legend
@@ -856,14 +926,16 @@ export default function TenderTracker() {
   ];
 
   const TICKER_ITEMS = [
-    "🔥 Databricks Dec 2024 · $10B — largest VC secondary tender in history",
-    "🚀 SpaceX Dec 2025 · $800B valuation · $2.56B tendered",
-    "🤖 OpenAI Oct 2025 · $6.6B · 600+ employees cashed out",
+    "🚀 SpaceX Jun 2026 · IPO filing at $1.77T · largest public offering in history",
+    "🧠 Anthropic May 2026 · $965B Series H · now more valuable than OpenAI",
+    "🤖 OpenAI Mar 2026 · $852B · $122B raise led by Amazon, Nvidia, SoftBank",
+    "🔥 Databricks Dec 2024 · $10B — largest VC secondary tender ever",
+    "📱 ByteDance Feb 2026 · $550B · most valuable private company in the world",
     "💳 Stripe Feb 2026 · $159B · 7th annual liquidity event",
-    "🧠 Anthropic Apr 2026 · $350B pre-money · employees held back expecting more",
     "⚡ Ripple Jun 2024 · $700M self-funded buyback · no external investors",
-    "🎨 Figma May 2024 · $23.19/share · employees who sold missed IPO upside at $33",
     "🌍 Revolut Nov 2025 · $1,381/share · Europe's most valuable private tech co",
+    "🎨 Figma May 2024 · $23.19/share · employees who sold missed IPO upside at $33",
+    "💰 Ramp Jun 2026 · $44B Series F · $750M at 8x its 2023 down-round",
   ];
   const tickerText = [...TICKER_ITEMS, ...TICKER_ITEMS].join("   ·   ");
 
