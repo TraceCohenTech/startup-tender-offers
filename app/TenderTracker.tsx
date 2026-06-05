@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 
 // ─── DATASET ─────────────────────────────────────────────────────────────────
@@ -595,6 +595,30 @@ const CHART_COLORS: Record<string, string> = {
   Anthropic:  "#0891b2",
 };
 
+// ─── CUMULATIVE LIQUIDITY ─────────────────────────────────────────────────────
+function _dn(d: string): number {
+  const m: Record<string,number> = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  const s = d.replace("~","").replace("Early ","Feb ").replace("Mid ","Jun ").replace("H1 ","Mar ").replace("H2 ","Sep ").replace("Q1 ","Feb ").replace("Q2 ","May ").replace("Q3 ","Aug ").replace("Q4 ","Nov ");
+  const p = s.split(" ");
+  return (parseInt(p[p.length-1])||2023)*100+(m[p[0]]||6);
+}
+const CUMULATIVE_DATA = (() => {
+  const evts = TENDER_DATA.filter(d=>d.amountKnown!=null)
+    .map(d=>({n:_dn(d.date),label:d.date,amt:d.amountKnown as number,co:d.company}))
+    .sort((a,b)=>a.n-b.n);
+  let sum=0;
+  return evts.map(e=>({label:e.label,co:e.co,event:+(e.amt/1000).toFixed(2),total:+(sum+=e.amt,sum/1000).toFixed(2)}));
+})();
+const TOTAL_KNOWN_B = CUMULATIVE_DATA.at(-1)?.total ?? 0;
+
+// SF context
+const SF_HOMES       = Math.round(TOTAL_KNOWN_B * 1000 / 1.4);      // at $1.4M median
+const SF_STOCK       = 38000;                                          // total SF housing units
+const SF_MULTIPLE    = +(SF_HOMES / SF_STOCK).toFixed(1);
+const SF_RENTS       = Math.round(TOTAL_KNOWN_B * 1e9 / (3300*12) / 1e6); // millions of apt-years
+const LATTES         = Math.round(TOTAL_KNOWN_B * 1e9 / 7 / 1e9 * 10)/10; // billions at $7
+const SALARIES       = Math.round(TOTAL_KNOWN_B * 1e9 / 150000 / 1e6 * 10)/10; // millions at $150K
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTORS = ["All", ...Array.from(new Set(TENDER_DATA.map(d => d.sector))).sort()];
 const YEARS = ["All", "2022", "2023", "2024", "2025", "2026"];
@@ -753,6 +777,158 @@ function StatusBadge({ status }: { status: string }) {
       <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
       {labels[status] || status}
     </span>
+  );
+}
+
+function CumulativeChart() {
+  const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', sans-serif";
+  const fmtB = (v: number) => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
+  const totalFmt = TOTAL_KNOWN_B >= 1000 ? `$${(TOTAL_KNOWN_B/1000).toFixed(2)}T` : `$${TOTAL_KNOWN_B.toFixed(0)}B`;
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 14,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+      padding: "22px 28px 16px", marginBottom: 16,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'SF Mono','Fira Code',monospace" }}>
+            The Great Cash-Out
+          </div>
+          <div style={{ fontSize: 12, color: "#aeaeb2", marginTop: 2, fontFamily: FONT }}>
+            Cumulative known deal value · each dot is a discrete event · hockey stick not accidental
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#0071e3", letterSpacing: "-0.04em", lineHeight: 1 }}>{totalFmt}</div>
+          <div style={{ fontSize: 10, color: "#aeaeb2", fontFamily: "'SF Mono','Fira Code',monospace", marginTop: 2 }}>total known, 2022–2026</div>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={240}>
+        <AreaChart data={CUMULATIVE_DATA} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="cashGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor="#0071e3" stopOpacity={0.18} />
+              <stop offset="95%" stopColor="#0071e3" stopOpacity={0.01} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#c7c7cc", fontFamily: FONT }} axisLine={false} tickLine={false} interval={4} />
+          <YAxis tickFormatter={fmtB} tick={{ fontSize: 10, fill: "#aeaeb2", fontFamily: FONT }} axisLine={false} tickLine={false} width={52} />
+          <Tooltip
+            contentStyle={{ background:"#fff", border:"1px solid rgba(0,0,0,0.08)", borderRadius:8, fontSize:12, fontFamily:FONT }}
+            formatter={(v, name) => name === "total" ? [fmtB(v as number), "Cumulative"] : [`$${v}B`, "This event"]}
+            labelFormatter={(l) => {
+              const pt = CUMULATIVE_DATA.find(d=>d.label===l);
+              return pt ? `${l} · ${pt.co}` : l;
+            }}
+            labelStyle={{ color:"#6e6e73", fontSize:11, marginBottom:4 }}
+          />
+          <ReferenceLine x="Oct 2025" stroke="#0071e3" strokeDasharray="4 4" strokeOpacity={0.3} label={{ value:"↑ AI goes vertical", position:"top", fontSize:9, fill:"#0071e3", fontFamily:FONT }} />
+          <Area type="stepAfter" dataKey="total" stroke="#0071e3" strokeWidth={2} fill="url(#cashGrad)" dot={{ r:3, fill:"#0071e3", strokeWidth:0 }} activeDot={{ r:5, strokeWidth:0 }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function WhatItBuys() {
+  const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', sans-serif";
+  const MONO = "'SF Mono','Fira Code',monospace";
+  const totalFmt = TOTAL_KNOWN_B >= 1000 ? `$${(TOTAL_KNOWN_B/1000).toFixed(2)}T` : `$${TOTAL_KNOWN_B.toFixed(0)}B`;
+
+  const cards = [
+    {
+      icon: "🏠",
+      big: SF_HOMES.toLocaleString(),
+      unit: "SF homes",
+      sub: `at $1.4M median · the entire city has ~38,000`,
+      color: "#e8570c",
+      accent: "#fff3ee",
+    },
+    {
+      icon: "🏙️",
+      big: `${SF_MULTIPLE}×`,
+      unit: "all of SF",
+      sub: `enough to buy every home in the city ${SF_MULTIPLE} times over`,
+      color: "#b45309",
+      accent: "#fffbeb",
+    },
+    {
+      icon: "📅",
+      big: `${SF_RENTS}M`,
+      unit: "years of rent",
+      sub: `years of a $3,300/mo SF apartment`,
+      color: "#0891b2",
+      accent: "#f0f9ff",
+    },
+    {
+      icon: "☕",
+      big: `${LATTES}B`,
+      unit: "SF lattes",
+      sub: `$7 each · enough for every human alive to have ${Math.round(LATTES*1e9/8e9)} cups`,
+      color: "#1a7f3c",
+      accent: "#f0fdf4",
+    },
+    {
+      icon: "💼",
+      big: `${SALARIES}M`,
+      unit: "Bay Area salaries",
+      sub: `full-time employees at $150K/yr, one year`,
+      color: "#0284c7",
+      accent: "#f0f9ff",
+    },
+  ];
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 14,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+      padding: "22px 28px", marginBottom: 16,
+    }}>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: MONO }}>
+          What {totalFmt} Actually Buys
+        </div>
+        <div style={{ fontSize: 12, color: "#aeaeb2", marginTop: 2, fontFamily: FONT }}>
+          No wonder you can&apos;t afford a house in SF.
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+        {cards.map((c, i) => (
+          <div key={i} style={{
+            background: c.accent, borderRadius: 12,
+            padding: "16px 18px",
+            border: `1px solid ${c.color}20`,
+          }}>
+            <div style={{ fontSize: 22, marginBottom: 8 }}>{c.icon}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: c.color, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: 2 }}>
+              {c.big}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1d1d1f", marginBottom: 4 }}>
+              {c.unit}
+            </div>
+            <div style={{ fontSize: 11, color: "#6e6e73", lineHeight: 1.5 }}>
+              {c.sub}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 16, padding: "12px 16px", background: "#f5f5f7", borderRadius: 10, borderLeft: "3px solid #e8570c" }}>
+        <span style={{ fontSize: 12, color: "#1d1d1f", fontWeight: 500, fontFamily: FONT }}>
+          🧮  SF has ~38,000 housing units total. This liquidity could buy the entire city{" "}
+          <strong style={{ color: "#e8570c" }}>{SF_MULTIPLE} times over</strong>.
+          The median SF software engineer salary is $180K — it would take them{" "}
+          <strong style={{ color: "#e8570c" }}>{Math.round(TOTAL_KNOWN_B * 1e9 / 180000 / 1e9 * 100 / 100).toLocaleString()} years</strong>{" "}
+          to earn this collectively.
+        </span>
+        <span style={{ fontSize: 11, color: "#aeaeb2", marginLeft: 8, fontFamily: MONO }}>
+          (includes primary + secondary deal value)
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -1068,6 +1244,12 @@ export default function TenderTracker() {
             })}
           </div>
         </div>
+
+        {/* ── CUMULATIVE CASH-OUT CHART ── */}
+        <CumulativeChart />
+
+        {/* ── WHAT IT BUYS ── */}
+        <WhatItBuys />
 
         {/* ── VALUATION CHART ── */}
         <ValuationChart />
