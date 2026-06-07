@@ -565,6 +565,7 @@ const VALUATION_TIMELINE = [
   { t: "Feb '26", OpenAI: null, SpaceX: null, Stripe: 159,  Databricks: null, Anthropic: null },
   { t: "Mar '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: 134,  Anthropic: null },
   { t: "Apr '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 350 },
+  { t: "May '26", OpenAI: null, SpaceX: null, Stripe: null, Databricks: null, Anthropic: 965 },
   { t: "Jun '26", OpenAI: null, SpaceX: 1770, Stripe: null, Databricks: null, Anthropic: null },
 ];
 
@@ -584,7 +585,7 @@ function _dn(d: string): number {
   return (parseInt(p[p.length-1])||2023)*100+(m[p[0]]||6);
 }
 const CUMULATIVE_DATA = (() => {
-  const evts = TENDER_DATA.filter(d=>d.amountKnown!=null)
+  const evts = TENDER_DATA.filter(d=>d.amountKnown!=null && d.dealType !== "IPO Filing")
     .map(d=>({n:_dn(d.date),label:d.date,amt:d.amountKnown as number,co:d.company}))
     .sort((a,b)=>a.n-b.n);
   let sum=0;
@@ -736,13 +737,13 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
       border: "1px solid rgba(255,255,255,0.2)",
       backdropFilter: "blur(4px)",
     }}>
-      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
+      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.9)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
         {label}
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.03em", lineHeight: 1 }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -785,7 +786,7 @@ function CumulativeChart() {
           <div style={{ fontSize: 10, color: "#aeaeb2", fontFamily: "'SF Mono','Fira Code',monospace", marginTop: 2 }}>total known, 2022–2026</div>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={380}>
         <AreaChart data={CUMULATIVE_DATA} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="cashGrad" x1="0" y1="0" x2="0" y2="1">
@@ -902,12 +903,127 @@ function WhatItBuys() {
           🧮  SF has ~38,000 housing units total. This liquidity could buy the entire city{" "}
           <strong style={{ color: "#e8570c" }}>{SF_MULTIPLE} times over</strong>.
           The median SF software engineer salary is $180K — it would take them{" "}
-          <strong style={{ color: "#e8570c" }}>{Math.round(TOTAL_KNOWN_B * 1e9 / 180000 / 1e9 * 100 / 100).toLocaleString()} years</strong>{" "}
+          <strong style={{ color: "#e8570c" }}>{Math.round(TOTAL_KNOWN_B * 1e9 / 180000).toLocaleString()} years</strong>{" "}
           to earn this collectively.
         </span>
         <span style={{ fontSize: 11, color: "#aeaeb2", marginLeft: 8, fontFamily: MONO }}>
           (includes primary + secondary deal value)
         </span>
+      </div>
+    </div>
+  );
+}
+
+function HindsightSection() {
+  const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', sans-serif";
+  const MONO = "'SF Mono','Fira Code',monospace";
+
+  const cases = [
+    {
+      emoji: "🚀",
+      company: "SpaceX",
+      date: "May 2022",
+      action: "Sold at $70/share",
+      context: "vs. $135 IPO target (Jun 2026)",
+      delta: "+93%",
+      missed: true,
+      verdict: "Sellers left money on the table",
+      color: "#e8570c",
+      accent: "#fff3ee",
+      detail: "Early sellers got $70/share. SpaceX's IPO filing targets $135 — a 93% premium to that tender price.",
+    },
+    {
+      emoji: "🎨",
+      company: "Figma",
+      date: "May 2024",
+      action: "Sold at $23.19/share",
+      context: "vs. $33 IPO price (Jul 2025)",
+      delta: "+42%",
+      missed: true,
+      verdict: "Sellers left money on the table",
+      color: "#be185d",
+      accent: "#fdf2f8",
+      detail: "Tender at $12.5B. Figma IPO'd at $19.3B ($33/share) — 42% above where sellers cashed out.",
+    },
+    {
+      emoji: "⚡",
+      company: "CoreWeave",
+      date: "Nov 2024",
+      action: "Sold at $46.99/share",
+      context: "vs. $40 IPO price (Mar 2025)",
+      delta: "-15%",
+      missed: false,
+      verdict: "Sellers dodged a loss",
+      color: "#1a7f3c",
+      accent: "#f0fdf4",
+      detail: "Pre-IPO secondary at $46.99. IPO priced at $40 — sellers got out 15% higher than holders at IPO.",
+    },
+    {
+      emoji: "🧠",
+      company: "Anthropic",
+      date: "Apr → May 2026",
+      action: "Holders waited 6 weeks",
+      context: "$350B tender → $965B raise",
+      delta: "+176%",
+      missed: false,
+      verdict: "Holders were right to wait",
+      color: "#0891b2",
+      accent: "#f0f9ff",
+      detail: "Apr 2026 tender priced at $350B. Anthropic raised at $965B just 6 weeks later — holders nearly tripled.",
+    },
+  ];
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 14,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+      padding: "22px 28px", marginBottom: 16,
+    }}>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#6e6e73", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: MONO }}>
+          Hindsight Hall of Fame
+        </div>
+        <div style={{ fontSize: 12, color: "#aeaeb2", marginTop: 2, fontFamily: FONT }}>
+          Who was right? Tender sellers vs. those who held — the definitive scoreboard.
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+        {cases.map((c, i) => (
+          <div key={i} style={{
+            background: c.accent, borderRadius: 12, padding: "16px 18px",
+            border: `1px solid ${c.color}22`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 20 }}>{c.emoji}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1d1d1f", letterSpacing: "-0.01em" }}>{c.company}</div>
+                  <div style={{ fontSize: 10, color: "#aeaeb2", fontFamily: MONO }}>{c.date}</div>
+                </div>
+              </div>
+              <div style={{
+                fontSize: 18, fontWeight: 800, color: c.color, fontFamily: MONO,
+                letterSpacing: "-0.02em",
+              }}>{c.delta}</div>
+            </div>
+            <div style={{ fontSize: 11, color: "#6e6e73", marginBottom: 6, lineHeight: 1.5 }}>
+              <span style={{ fontWeight: 600, color: "#1d1d1f" }}>{c.action}</span>
+              <br />{c.context}
+            </div>
+            <div style={{ fontSize: 11, color: "#aeaeb2", lineHeight: 1.5, marginBottom: 10 }}>
+              {c.detail}
+            </div>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              background: c.color + "18", color: c.color,
+              border: `1px solid ${c.color}30`, borderRadius: 20,
+              padding: "3px 10px", fontSize: 10, fontWeight: 700,
+            }}>
+              {c.missed ? "⚠" : "✓"} {c.verdict}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -991,13 +1107,14 @@ export default function TenderTracker() {
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [expanded, setExpanded] = useState<number | null>(null);
   const [recurringOnly, setRecurringOnly] = useState(false);
+  const [confirmedOnly, setConfirmedOnly] = useState(false);
   const [filterKey, setFilterKey] = useState(0);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Geist Sans', 'Segoe UI', sans-serif";
   const MONO = "'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
 
-  const totalKnown = TENDER_DATA.filter(d => d.amountKnown != null).reduce((s, d) => s + (d.amountKnown ?? 0), 0);
+  const totalKnown = TENDER_DATA.filter(d => d.amountKnown != null && d.dealType !== "IPO Filing").reduce((s, d) => s + (d.amountKnown ?? 0), 0);
   const companies  = new Set(TENDER_DATA.map(d => d.company)).size;
   const confirmed  = TENDER_DATA.filter(d => d.amountStatus === "confirmed").length;
 
@@ -1021,6 +1138,7 @@ export default function TenderTracker() {
   const filtered = useMemo(() => {
     let data = [...TENDER_DATA];
     if (recurringOnly) data = data.filter(d => d.recurring);
+    if (confirmedOnly) data = data.filter(d => d.amountStatus === "confirmed");
     if (search) {
       const q = search.toLowerCase();
       data = data.filter(d =>
@@ -1041,11 +1159,11 @@ export default function TenderTracker() {
       return sort.dir === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return data;
-  }, [search, sector, year, sort, recurringOnly, filterKey]);
+  }, [search, sector, year, sort, recurringOnly, confirmedOnly, filterKey]);
 
   const topDeals = useMemo(() =>
     [...TENDER_DATA]
-      .filter(d => d.amountKnown != null)
+      .filter(d => d.amountKnown != null && d.dealType !== "IPO Filing")
       .sort((a, b) => (b.amountKnown ?? 0) - (a.amountKnown ?? 0))
       .slice(0, 8),
   []);
@@ -1061,7 +1179,7 @@ export default function TenderTracker() {
   );
 
   const surpriseMe = () => {
-    setSector("All"); setYear("All"); setSearch(""); setRecurringOnly(false);
+    setSector("All"); setYear("All"); setSearch(""); setRecurringOnly(false); setConfirmedOnly(false);
     const idx = Math.floor(Math.random() * TENDER_DATA.length);
     setExpanded(idx);
     setFilterKey(k => k + 1);
@@ -1080,6 +1198,7 @@ export default function TenderTracker() {
     { key: "valuation",    label: "Valuation",  w: 130 },
     { key: "amount",       label: "Amount",     w: 120 },
     { key: "amountStatus", label: "Confidence", w: 110 },
+    { key: "dealType",     label: "Deal Type",  w: 160 },
   ];
 
   const TICKER_ITEMS = [
@@ -1115,33 +1234,43 @@ export default function TenderTracker() {
         padding: "40px 40px 0",
       }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
             <span className="live-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} />
             <span style={{ fontSize: 10, letterSpacing: "0.22em", color: "rgba(255,255,255,0.65)", textTransform: "uppercase", fontFamily: MONO }}>
               ValueAdd VC · Private Market Intelligence
             </span>
           </div>
-          <h1 style={{ margin: "0 0 6px", fontSize: "clamp(20px, 3vw, 32px)", fontWeight: 700, color: "#fff", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
-            Startup Tender Offers & Secondary Share Sales
+
+          {/* Big centerpiece number */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: "clamp(52px, 8vw, 88px)", fontWeight: 800, color: "#fff", letterSpacing: "-0.05em", lineHeight: 1, fontFamily: FONT }}>
+              ${(animTotal / 10).toFixed(1)}B
+            </div>
+            <div style={{ fontSize: "clamp(14px, 2vw, 18px)", color: "rgba(255,255,255,0.5)", fontFamily: MONO, letterSpacing: "0.04em", marginTop: 4 }}>
+              known employee liquidity · 2022–2026
+            </div>
+          </div>
+
+          <h1 style={{ margin: "0 0 6px", fontSize: "clamp(18px, 2.4vw, 26px)", fontWeight: 700, color: "rgba(255,255,255,0.95)", letterSpacing: "-0.02em", lineHeight: 1.2, maxWidth: 700 }}>
+            The Hidden Liquidity Boom: Billions Have Quietly Left Private Tech Through the Side Door
           </h1>
-          <p style={{ margin: "0 0 28px", color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
-            Every known private market liquidity event · 2022–2026
-            <span style={{ color: "rgba(255,255,255,0.35)" }}> · and that&apos;s just what leaked</span>
+          <p style={{ margin: "0 0 28px", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+            Every known tender offer, secondary sale & employee buyback · {TENDER_DATA.length} events · {new Set(TENDER_DATA.map(d => d.company)).size} companies
+            <span style={{ color: "rgba(255,255,255,0.3)" }}> · and that&apos;s just what leaked</span>
           </p>
 
           {/* Stat cards with count-up */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <StatCard label="Total Events"       value={animEvents}                           sub={`${animCos} companies`} />
-            <StatCard label="Known Liquidity"    value={`$${(animTotal / 10).toFixed(1)}B+`} sub="confirmed + reported" />
-            <StatCard label="Confirmed"          value={animConfirm}                          sub="company/press verified" />
-            <StatCard label="Undisclosed"        value={TENDER_DATA.filter(d => d.amountStatus === "undisclosed").length} sub="size not public" />
+            <StatCard label="Total Events"       value={animEvents}   sub={`${animCos} companies`} />
+            <StatCard label="Confirmed"          value={animConfirm}  sub="company/press verified" />
+            <StatCard label="Undisclosed Size"   value={TENDER_DATA.filter(d => d.amountStatus === "undisclosed").length} sub="amount not public" />
             <StatCard label="Recurring Programs" value={TENDER_DATA.filter(d => d.recurring).length} sub="multi-event companies" />
           </div>
 
           {/* Scrolling ticker */}
           <div style={{ marginTop: 24, overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, paddingBottom: 14 }}>
             <div className="ticker-track" style={{ display: "inline-block", whiteSpace: "nowrap" }}>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: MONO, letterSpacing: "0.03em" }}>
+              <span style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", fontFamily: MONO, letterSpacing: "0.03em" }}>
                 {tickerText}
               </span>
             </div>
@@ -1232,6 +1361,9 @@ export default function TenderTracker() {
         {/* ── WHAT IT BUYS ── */}
         <WhatItBuys />
 
+        {/* ── HINDSIGHT HALL OF FAME ── */}
+        <HindsightSection />
+
         {/* ── VALUATION CHART ── */}
         <ValuationChart />
 
@@ -1278,6 +1410,7 @@ export default function TenderTracker() {
           <div style={{ display: "flex", gap: 4 }}>
             {YEARS.map(y => {
               const active = year === y;
+              const count = y === "All" ? TENDER_DATA.length : TENDER_DATA.filter(d => d.date.includes(y)).length;
               return (
                 <button key={y} onClick={() => setYear(y)} style={{
                   background: active ? "#0071e3" : "transparent",
@@ -1286,7 +1419,9 @@ export default function TenderTracker() {
                   borderRadius: 20, padding: "4px 10px", fontSize: 11,
                   cursor: "pointer", fontFamily: FONT, transition: "all 0.12s",
                   fontWeight: active ? 600 : 400,
-                }}>{y}</button>
+                }}>
+                  {y === "All" ? "All" : `${y} (${count})`}
+                </button>
               );
             })}
           </div>
@@ -1303,9 +1438,19 @@ export default function TenderTracker() {
             {recurringOnly ? "◉" : "◎"} Recurring only
           </button>
 
-          {(search || sector !== "All" || year !== "All" || recurringOnly) && (
+          <button onClick={() => setConfirmedOnly(c => !c)} style={{
+            background: confirmedOnly ? "#f0fdf4" : "transparent",
+            color: confirmedOnly ? "#1a7f3c" : "#6e6e73",
+            border: `1px solid ${confirmedOnly ? "#bbf7d0" : "rgba(0,0,0,0.12)"}`,
+            borderRadius: 20, padding: "4px 11px", fontSize: 11,
+            cursor: "pointer", fontFamily: FONT, fontWeight: confirmedOnly ? 600 : 400,
+          }}>
+            {confirmedOnly ? "◉" : "◎"} Confirmed only
+          </button>
+
+          {(search || sector !== "All" || year !== "All" || recurringOnly || confirmedOnly) && (
             <button
-              onClick={() => { setSearch(""); setSector("All"); setYear("All"); setRecurringOnly(false); setExpanded(null); }}
+              onClick={() => { setSearch(""); setSector("All"); setYear("All"); setRecurringOnly(false); setConfirmedOnly(false); setExpanded(null); }}
               style={{
                 background: "transparent", color: "#aeaeb2",
                 border: "1px solid rgba(0,0,0,0.08)", borderRadius: 20,
@@ -1442,6 +1587,18 @@ export default function TenderTracker() {
                         <StatusBadge status={row.amountStatus} />
                       </td>
 
+                      {/* Deal Type */}
+                      <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                        <span style={{
+                          background: ac + "14", color: ac,
+                          border: `1px solid ${ac}30`, borderRadius: 20,
+                          padding: "2px 9px", fontSize: 10, fontWeight: 600,
+                          letterSpacing: "0.01em",
+                        }}>
+                          {row.dealType}
+                        </span>
+                      </td>
+
                       {/* Notes */}
                       <td style={{
                         padding: "10px 14px", fontSize: 12, color: "#6e6e73",
@@ -1475,6 +1632,25 @@ export default function TenderTracker() {
                                   ${row.sharePrice.toLocaleString()}/share
                                 </div>
                               )}
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  const amt = row.amountKnown ? fmtAmt(row.amountKnown, row.amountStatus) : "undisclosed amount";
+                                  const val = row.valuation ? ` at ${fmtVal(row.valuation)} valuation` : "";
+                                  const tweet = `${row.company} did a ${row.dealType} in ${row.date} — ${amt}${val}.\n\nFull dataset of 68+ private market liquidity events 👇\n#PrivateMarkets #TenderOffer via @Trace_Cohen`;
+                                  navigator.clipboard.writeText(tweet);
+                                  (e.currentTarget as HTMLButtonElement).textContent = "✓ Copied!";
+                                  setTimeout(() => { if (e.currentTarget) (e.currentTarget as HTMLButtonElement).textContent = "📋 Copy tweet"; }, 1800);
+                                }}
+                                style={{
+                                  background: "#f0f6ff", color: "#0071e3",
+                                  border: "1px solid #bfdbfe", borderRadius: 20,
+                                  padding: "4px 12px", fontSize: 11, fontWeight: 600,
+                                  cursor: "pointer", fontFamily: FONT,
+                                }}
+                              >
+                                📋 Copy tweet
+                              </button>
                             </div>
                           </div>
                         ) : row.notes}
